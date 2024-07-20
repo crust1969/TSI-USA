@@ -21,7 +21,7 @@ def calculate_tsi(data, r=25, s=13):
     return tsi
 
 # Funktion zur Überwachung der Portfolio-Performance und Berechnung des TSI
-def check_portfolio_performance(portfolio, stop_loss_limits, official_tsi, use_official_tsi):
+def check_portfolio_performance(portfolio, stop_loss_limits, official_tsi):
     tickers = list(portfolio.keys())
     investments = list(portfolio.values())
 
@@ -79,11 +79,6 @@ def check_portfolio_performance(portfolio, stop_loss_limits, official_tsi, use_o
         if (previous_price - current_price) / previous_price * 100 >= stop_loss_limits[ticker]:
             stop_loss_alerts.append(f"Stopp-Loss erreicht für {ticker}: aktueller Preis = {current_price:.2f}, Vortagespreis = {previous_price:.2f}, Verlust = {((previous_price - current_price) / previous_price * 100):.2f}%")
     
-    if use_official_tsi:
-        tsi_data = pd.DataFrame(official_tsi, index=[0]).T
-        tsi_data.columns = ['TSI']
-        current_tsi = official_tsi
-
     return portfolio_value, current_prices, tsi_data, stop_loss_alerts, current_tsi, ticker_names
 
 # Funktion zum Abrufen der offiziellen TSI-Werte von "Der Aktionär"
@@ -101,6 +96,17 @@ def get_official_tsi():
         'SMCI': 98.00
     }
     return official_tsi
+
+# Funktion zur Aktualisierung des Portfolios
+def update_portfolio():
+    # Hier können Sie die Online-Recherche implementieren, um die aktuellen TSI USA Portfolio-Daten abzurufen
+    # Beispielhafte TSI-Werte vom Aktionär für das neue Portfolio
+    new_portfolio = {
+        'Ticker': ['NVDA', 'TSLA', 'ASTH', 'ENPH', 'FSLR', 'VRTX', 'DDOG', 'PACB', 'SMCI'],
+        'Investment': [2250, 2250, 3000, 3000, 2250, 2250, 2250, 2250, 2250],
+        'StopLoss': [10, 10, 10, 10, 10, 10, 10, 10, 10]
+    }
+    return pd.DataFrame(new_portfolio)
 
 # Streamlit App
 st.title("Portfolio Performance Monitor mit TSI")
@@ -126,8 +132,7 @@ if uploaded_file is not None:
 
         # Schaltfläche zum Überprüfen der Performance
         if st.sidebar.button("Portfolio überprüfen"):
-            use_official_tsi = st.sidebar.checkbox("TSI vom Aktionär verwenden", value=False)
-            performance, current_prices, tsi_data, stop_loss_alerts, current_tsi, ticker_names = check_portfolio_performance(portfolio, stop_loss_limits, official_tsi, use_official_tsi)
+            performance, current_prices, tsi_data, stop_loss_alerts, current_tsi, ticker_names = check_portfolio_performance(portfolio, stop_loss_limits, official_tsi)
 
             if performance is not None and current_prices is not None:
                 # Plot der Portfolio-Performance
@@ -150,11 +155,11 @@ if uploaded_file is not None:
                 tsi_end_date = tsi_data.index.max()
                 date_slider = st.slider(
                     "Zeitraum auswählen",
-                    min_value=tsi_start_date.to_pydatetime(),
-                    max_value=tsi_end_date.to_pydatetime(),
-                    value=(tsi_start_date.to_pydatetime(), tsi_end_date.to_pydatetime())
+                    min_value=pd.to_datetime(tsi_start_date).date(),
+                    max_value=pd.to_datetime(tsi_end_date).date(),
+                    value=(pd.to_datetime(tsi_start_date).date(), pd.to_datetime(tsi_end_date).date())
                 )
-                filtered_tsi_data = tsi_data[date_slider[0]:date_slider[1]]
+                filtered_tsi_data = tsi_data.loc[date_slider[0]:date_slider[1]]
                 st.line_chart(filtered_tsi_data)
 
                 # Anzeige der Stopp-Loss-Warnungen
@@ -178,10 +183,3 @@ if uploaded_file is not None:
 
                 # Unterschied in der Berechnungsmethode erklären
                 st.subheader("Unterschiede in der TSI-Berechnung")
-                st.write("""
-                    Die TSI-Werte, die in dieser App berechnet werden, basieren auf einer Standardformel, die zwei exponentielle gleitende Durchschnitte (EMAs) der Preisänderungen verwendet. Diese Methode ist allgemein bekannt und weit verbreitet.
-                    Im Gegensatz dazu verwendet "Der Aktionär" eine proprietäre Methode zur Berechnung des TSI, die möglicherweise zusätzliche Glättungs- und Gewichtungsfaktoren beinhaltet, die nicht in der Standard-TSI-Berechnung verwendet werden. 
-                    Dies kann zu unterschiedlichen Ergebnissen führen, obwohl beide Methoden darauf abzielen, die relative Stärke einer Aktie im Vergleich zu einem Index zu messen.
-                """)
-else:
-    st.sidebar.write("Bitte laden Sie eine Portfolio CSV-Datei hoch.")
