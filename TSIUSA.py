@@ -148,9 +148,9 @@ if uploaded_file is not None:
                 st.subheader("TSI-Daten")
                 date_slider = st.slider(
                     "Zeitraum auswählen",
-                    min_value=tsi_data.index.min(),
-                    max_value=tsi_data.index.max(),
-                    value=(tsi_data.index.min(), tsi_data.index.max())
+                    min_value=pd.to_datetime(tsi_data.index.min()).date(),
+                    max_value=pd.to_datetime(tsi_data.index.max()).date(),
+                    value=(pd.to_datetime(tsi_data.index.min()).date(), pd.to_datetime(tsi_data.index.max()).date())
                 )
                 filtered_tsi_data = tsi_data.loc[date_slider[0]:date_slider[1]]
                 st.line_chart(filtered_tsi_data)
