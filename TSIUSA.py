@@ -21,7 +21,7 @@ def calculate_tsi(data, r=25, s=13):
     return tsi
 
 # Funktion zur Überwachung der Portfolio-Performance und Berechnung des TSI
-def check_portfolio_performance(portfolio, stop_loss_limits, ticker_names):
+def check_portfolio_performance(portfolio, stop_loss_limits):
     tickers = list(portfolio.keys())
     investments = list(portfolio.values())
 
@@ -30,12 +30,12 @@ def check_portfolio_performance(portfolio, stop_loss_limits, ticker_names):
         data = yf.download(tickers, period='1y')['Adj Close']
     except Exception as e:
         st.error(f"Fehler beim Abrufen der historischen Daten: {e}")
-        return None, None, None, []
+        return None, None, None, [], {}
 
     # Überprüfung der Daten
     if data.empty:
         st.error("Keine historischen Daten verfügbar.")
-        return None, None, None, []
+        return None, None, None, [], {}
 
     # TSI für jede Aktie berechnen
     tsi_data = pd.DataFrame()
@@ -56,13 +56,19 @@ def check_portfolio_performance(portfolio, stop_loss_limits, ticker_names):
         current_data = yf.download(tickers, period='1d')['Adj Close']
     except Exception as e:
         st.error(f"Fehler beim Abrufen der aktuellen Daten: {e}")
-        return None, None, None, []
+        return None, None, None, [], {}
 
     if current_data.empty:
         st.error("Keine aktuellen Daten verfügbar.")
-        return None, None, None, []
+        return None, None, None, [], {}
 
     current_prices = current_data.iloc[-1]
+
+    # Bezeichnungen der Aktien abrufen
+    ticker_names = {}
+    for ticker in tickers:
+        stock_info = yf.Ticker(ticker).info
+        ticker_names[ticker] = stock_info.get('shortName', ticker)
 
     # Überprüfung der Stopp-Loss-Grenzen
     previous_prices = data.iloc[-2]
@@ -73,7 +79,7 @@ def check_portfolio_performance(portfolio, stop_loss_limits, ticker_names):
         if (previous_price - current_price) / previous_price * 100 >= stop_loss_limits[ticker]:
             stop_loss_alerts.append(f"Stopp-Loss erreicht für {ticker}: aktueller Preis = {current_price:.2f}, Vortagespreis = {previous_price:.2f}, Verlust = {((previous_price - current_price) / previous_price * 100):.2f}%")
     
-    return portfolio_value, current_prices, tsi_data, stop_loss_alerts, current_tsi
+    return portfolio_value, current_prices, tsi_data, stop_loss_alerts, current_tsi, ticker_names
 
 # Streamlit App
 st.title("Portfolio Performance Monitor mit TSI")
@@ -96,21 +102,9 @@ if uploaded_file is not None:
         portfolio = portfolio_df.set_index('Ticker')['Investment'].to_dict()
         stop_loss_limits = portfolio_df.set_index('Ticker')['StopLoss'].to_dict()
 
-        ticker_names = {
-            'NVDA': 'Nvidia',
-            'TSLA': 'Tesla',
-            'ASTH': 'Apollo Medical Holdings',
-            'ENPH': 'Enphase Energy',
-            'FSLR': 'First Solar',
-            'VRTX': 'Vertex Pharmaceuticals',
-            'DDOG': 'Datadog',
-            'PACB': 'Pacific Biosciences of California',
-            'SMCI': 'Super Micro Computer'
-        }
-
         # Schaltfläche zum Überprüfen der Performance
         if st.sidebar.button("Portfolio überprüfen"):
-            performance, current_prices, tsi_data, stop_loss_alerts, current_tsi = check_portfolio_performance(portfolio, stop_loss_limits, ticker_names)
+            performance, current_prices, tsi_data, stop_loss_alerts, current_tsi, ticker_names = check_portfolio_performance(portfolio, stop_loss_limits)
 
             if performance is not None and current_prices is not None:
                 # Plot der Portfolio-Performance
