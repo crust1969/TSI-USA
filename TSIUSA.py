@@ -146,13 +146,15 @@ if uploaded_file is not None:
 
                 # Anzeige der TSI-Daten
                 st.subheader("TSI-Daten")
+                tsi_start_date = tsi_data.index.min()
+                tsi_end_date = tsi_data.index.max()
                 date_slider = st.slider(
                     "Zeitraum auswählen",
-                    min_value=pd.to_datetime(tsi_data.index.min()).date(),
-                    max_value=pd.to_datetime(tsi_data.index.max()).date(),
-                    value=(pd.to_datetime(tsi_data.index.min()).date(), pd.to_datetime(tsi_data.index.max()).date())
+                    min_value=tsi_start_date.to_pydatetime(),
+                    max_value=tsi_end_date.to_pydatetime(),
+                    value=(tsi_start_date.to_pydatetime(), tsi_end_date.to_pydatetime())
                 )
-                filtered_tsi_data = tsi_data.loc[date_slider[0]:date_slider[1]]
+                filtered_tsi_data = tsi_data[date_slider[0]:date_slider[1]]
                 st.line_chart(filtered_tsi_data)
 
                 # Anzeige der Stopp-Loss-Warnungen
