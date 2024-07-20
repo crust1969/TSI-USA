@@ -99,7 +99,7 @@ if uploaded_file is not None:
         ticker_names = {
             'NVDA': 'Nvidia',
             'TSLA': 'Tesla',
-            'AMEH': 'Apollo Medical Holdings',
+            'ASTH': 'Apollo Medical Holdings',
             'ENPH': 'Enphase Energy',
             'FSLR': 'First Solar',
             'VRTX': 'Vertex Pharmaceuticals',
