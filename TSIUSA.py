@@ -21,7 +21,7 @@ def calculate_tsi(data, r=25, s=13):
     return tsi
 
 # Funktion zur Überwachung der Portfolio-Performance und Berechnung des TSI
-def check_portfolio_performance(portfolio, stop_loss_limits, official_tsi):
+def check_portfolio_performance(portfolio, stop_loss_limits, official_tsi, use_official_tsi):
     tickers = list(portfolio.keys())
     investments = list(portfolio.values())
 
@@ -79,7 +79,12 @@ def check_portfolio_performance(portfolio, stop_loss_limits, official_tsi):
         if (previous_price - current_price) / previous_price * 100 >= stop_loss_limits[ticker]:
             stop_loss_alerts.append(f"Stopp-Loss erreicht für {ticker}: aktueller Preis = {current_price:.2f}, Vortagespreis = {previous_price:.2f}, Verlust = {((previous_price - current_price) / previous_price * 100):.2f}%")
     
-    return portfolio_value, current_prices, tsi_data, stop_loss_alerts, current_tsi, ticker_names, official_tsi
+    if use_official_tsi:
+        tsi_data = pd.DataFrame(official_tsi, index=[0]).T
+        tsi_data.columns = ['TSI']
+        current_tsi = official_tsi
+
+    return portfolio_value, current_prices, tsi_data, stop_loss_alerts, current_tsi, ticker_names
 
 # Funktion zum Abrufen der offiziellen TSI-Werte von "Der Aktionär"
 def get_official_tsi():
@@ -121,7 +126,8 @@ if uploaded_file is not None:
 
         # Schaltfläche zum Überprüfen der Performance
         if st.sidebar.button("Portfolio überprüfen"):
-            performance, current_prices, tsi_data, stop_loss_alerts, current_tsi, ticker_names, official_tsi = check_portfolio_performance(portfolio, stop_loss_limits, official_tsi)
+            use_official_tsi = st.sidebar.checkbox("TSI vom Aktionär verwenden", value=False)
+            performance, current_prices, tsi_data, stop_loss_alerts, current_tsi, ticker_names = check_portfolio_performance(portfolio, stop_loss_limits, official_tsi, use_official_tsi)
 
             if performance is not None and current_prices is not None:
                 # Plot der Portfolio-Performance
@@ -139,8 +145,15 @@ if uploaded_file is not None:
                 st.write(current_info)
 
                 # Anzeige der TSI-Daten
-                st.subheader("TSI-Daten (berechnet)")
-                st.line_chart(tsi_data)
+                st.subheader("TSI-Daten")
+                date_slider = st.slider(
+                    "Zeitraum auswählen",
+                    min_value=tsi_data.index.min(),
+                    max_value=tsi_data.index.max(),
+                    value=(tsi_data.index.min(), tsi_data.index.max())
+                )
+                filtered_tsi_data = tsi_data.loc[date_slider[0]:date_slider[1]]
+                st.line_chart(filtered_tsi_data)
 
                 # Anzeige der Stopp-Loss-Warnungen
                 st.subheader("Stopp-Loss-Warnungen")
