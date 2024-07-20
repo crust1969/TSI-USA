@@ -3,6 +3,7 @@ import yfinance as yf
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
+import datetime
 
 # Funktion zur Berechnung des TSI-Indikators
 def calculate_tsi(data, r=25, s=13):
@@ -195,6 +196,8 @@ if uploaded_file is not None:
                     max_value=pd.to_datetime(tsi_end_date).date(),
                     value=(pd.to_datetime(tsi_start_date).date(), pd.to_datetime(tsi_end_date).date())
                 )
-                filtered_tsi_data = tsi_data.loc[date_slider[0]: &#8203;:citation[oaicite:0]{index=0}&#8203;
+                filtered_tsi_data = tsi_data.loc[date_slider[0]:date_slider[1]]
+                st.line_chart(filtered_tsi_data)
 
-  
+                # Anzeige der Stopp-Loss-Warnungen
+               
