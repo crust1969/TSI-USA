@@ -1,7 +1,8 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-import matplotlib.pyplot as plt
+import requests
+from bs4 import BeautifulSoup
 
 # Funktion zur Berechnung des TSI-Indikators
 def calculate_tsi(data, r=25, s=13):
@@ -97,16 +98,30 @@ def get_official_tsi():
     }
     return official_tsi
 
-# Funktion zur Aktualisierung des Portfolios
-def update_portfolio():
-    # Hier können Sie die Online-Recherche implementieren, um die aktuellen TSI USA Portfolio-Daten abzurufen
-    # Beispielhafte TSI-Werte vom Aktionär für das neue Portfolio
-    new_portfolio = {
-        'Ticker': ['NVDA', 'TSLA', 'ASTH', 'ENPH', 'FSLR', 'VRTX', 'DDOG', 'PACB', 'SMCI'],
-        'Investment': [2250, 2250, 3000, 3000, 2250, 2250, 2250, 2250, 2250],
-        'StopLoss': [10, 10, 10, 10, 10, 10, 10, 10, 10]
-    }
-    return pd.DataFrame(new_portfolio)
+# Funktion zur Ermittlung des aktuellen TSI USA Portfolios von "Der Aktionär"
+def fetch_current_tsi_usa_portfolio():
+    # Hier wird die Web-Scraping Logik implementiert
+    # Beispiel-URLs zur Recherche
+    urls = [
+        "https://www.deraktionaer.de/aktien/tsi-usa/",
+        # Weitere relevante URLs hinzufügen
+    ]
+
+    portfolio = []
+
+    for url in urls:
+        response = requests.get(url)
+        soup = BeautifulSoup(response.content, 'html.parser')
+
+        # Extrahieren der relevanten Daten (Dies muss basierend auf der tatsächlichen Webseitenstruktur angepasst werden)
+        for row in soup.find_all('tr'):
+            columns = row.find_all('td')
+            if len(columns) > 1:
+                ticker = columns[0].text.strip()
+                tsi_value = columns[1].text.strip()
+                portfolio.append({'Ticker': ticker, 'TSI': tsi_value})
+
+    return pd.DataFrame(portfolio)
 
 # Streamlit App
 st.title("Portfolio Performance Monitor mit TSI")
@@ -117,9 +132,24 @@ uploaded_file = st.sidebar.file_uploader("Laden Sie Ihre Portfolio CSV-Datei hoc
 
 # Monatliche Portfolio-Aktualisierung
 if st.sidebar.button("Monatliches Portfolio-Update"):
-    portfolio_df = update_portfolio()
-    st.write("Aktualisiertes Portfolio für den aktuellen Monat:")
-    st.write(portfolio_df)
+    current_portfolio_df = fetch_current_tsi_usa_portfolio()
+    st.write("Aktualisiertes TSI USA Portfolio für den aktuellen Monat:")
+    st.write(current_portfolio_df)
+
+    # Vergleich mit dem hochgeladenen Portfolio
+    if uploaded_file is not None:
+        old_portfolio_df = pd.read_csv(uploaded_file)
+        old_tickers = set(old_portfolio_df['Ticker'])
+        new_tickers = set(current_portfolio_df['Ticker'])
+
+        added_tickers = new_tickers - old_tickers
+        removed_tickers = old_tickers - new_tickers
+
+        st.write("Neu hinzugefügte Positionen:")
+        st.write(current_portfolio_df[current_portfolio_df['Ticker'].isin(added_tickers)])
+
+        st.write("Entfernte Positionen:")
+        st.write(old_portfolio_df[old_portfolio_df['Ticker'].isin(removed_tickers)])
 
 if uploaded_file is not None:
     portfolio_df = pd.read_csv(uploaded_file)
@@ -165,26 +195,6 @@ if uploaded_file is not None:
                     max_value=pd.to_datetime(tsi_end_date).date(),
                     value=(pd.to_datetime(tsi_start_date).date(), pd.to_datetime(tsi_end_date).date())
                 )
-                filtered_tsi_data = tsi_data.loc[date_slider[0]:date_slider[1]]
-                st.line_chart(filtered_tsi_data)
+                filtered_tsi_data = tsi_data.loc[date_slider[0]: &#8203;:citation[oaicite:0]{index=0}&#8203;
 
-                # Anzeige der Stopp-Loss-Warnungen
-                st.subheader("Stopp-Loss-Warnungen")
-                if stop_loss_alerts:
-                    for alert in stop_loss_alerts:
-                        st.warning(alert)
-                else:
-                    st.success("Keine Stopp-Loss-Grenzen erreicht.")
-
-                # Erstellen und Anzeigen des Plots
-                st.subheader("Portfolio Verteilung")
-                labels = list(portfolio.keys())
-                sizes = list(portfolio.values())
-                colors = ['gold', 'yellowgreen', 'lightcoral', 'lightskyblue', 'lightgreen', 'pink']
-
-                fig, ax = plt.subplots()
-                ax.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=140)
-                ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
-                st.pyplot(fig)
-
-               
+  
