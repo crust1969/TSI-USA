@@ -115,6 +115,12 @@ st.write("Überwachung der täglichen Performance, TSI und Stopp-Loss-Grenzen Ih
 # Portfolio aus CSV-Datei laden
 uploaded_file = st.sidebar.file_uploader("Laden Sie Ihre Portfolio CSV-Datei hoch", type="csv")
 
+# Monatliche Portfolio-Aktualisierung
+if st.sidebar.button("Monatliches Portfolio-Update"):
+    portfolio_df = update_portfolio()
+    st.write("Aktualisiertes Portfolio für den aktuellen Monat:")
+    st.write(portfolio_df)
+
 if uploaded_file is not None:
     portfolio_df = pd.read_csv(uploaded_file)
     
@@ -181,5 +187,4 @@ if uploaded_file is not None:
                 ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
                 st.pyplot(fig)
 
-                # Unterschied in der Berechnungsmethode erklären
-                st.subheader("Unterschiede in der TSI-Berechnung")
+               
