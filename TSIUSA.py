@@ -3,7 +3,6 @@ import yfinance as yf
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
-import datetime
 
 # Funktion zur Berechnung des TSI-Indikators
 def calculate_tsi(data, r=25, s=13):
@@ -140,6 +139,9 @@ if st.sidebar.button("Monatliches Portfolio-Update"):
     # Vergleich mit dem hochgeladenen Portfolio
     if uploaded_file is not None:
         old_portfolio_df = pd.read_csv(uploaded_file)
+        old_portfolio_df.columns = [col.strip() for col in old_portfolio_df.columns]  # Spaltennamen bereinigen
+        current_portfolio_df.columns = [col.strip() for col in current_portfolio_df.columns]  # Spaltennamen bereinigen
+
         old_tickers = set(old_portfolio_df['Ticker'])
         new_tickers = set(current_portfolio_df['Ticker'])
 
@@ -154,6 +156,7 @@ if st.sidebar.button("Monatliches Portfolio-Update"):
 
 if uploaded_file is not None:
     portfolio_df = pd.read_csv(uploaded_file)
+    portfolio_df.columns = [col.strip() for col in portfolio_df.columns]  # Spaltennamen bereinigen
     
     # Überprüfung der Spaltennamen
     expected_columns = ['Ticker', 'Investment', 'StopLoss']
@@ -188,16 +191,3 @@ if uploaded_file is not None:
 
                 # Anzeige der TSI-Daten
                 st.subheader("TSI-Daten")
-                tsi_start_date = tsi_data.index.min()
-                tsi_end_date = tsi_data.index.max()
-                date_slider = st.slider(
-                    "Zeitraum auswählen",
-                    min_value=pd.to_datetime(tsi_start_date).date(),
-                    max_value=pd.to_datetime(tsi_end_date).date(),
-                    value=(pd.to_datetime(tsi_start_date).date(), pd.to_datetime(tsi_end_date).date())
-                )
-                filtered_tsi_data = tsi_data.loc[date_slider[0]:date_slider[1]]
-                st.line_chart(filtered_tsi_data)
-
-                # Anzeige der Stopp-Loss-Warnungen
-               
