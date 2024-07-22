@@ -8,7 +8,7 @@ import openai
 def get_current_tsi_usa_portfolio(api_key):
     openai.api_key = api_key
     response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4",
         messages=[
             {"role": "system", "content": "Du bist ein Finanzexperte."},
             {"role": "user", "content": "ermittle das aktuelle TSI USA Portfolio und zeige an, welche Werte im Vergleich zum Portfolio vorher hinzugefügt wurden und welche entfernt wurden"}
