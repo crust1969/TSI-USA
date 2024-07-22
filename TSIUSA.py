@@ -2,84 +2,68 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import matplotlib.pyplot as plt
-from bs4 import BeautifulSoup
-import requests
+import openai
 
-# Funktion zum Scraping der TSI USA Aktien von "Der Aktionär"
-def get_tsi_usa_stocks():
-    url = "https://www.deraktionaer.de/tsi-usa"  # Beispiel-URL
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, 'html.parser')
+# Funktion zur Ermittlung des aktuellen TSI USA Portfolios mit LLM
+def get_current_tsi_usa_portfolio(api_key):
+    openai.api_key = api_key
+    response = openai.Completion.create(
+        engine="text-davinci-003",
+        prompt="ermittle das aktuelle TSI USA Portfolio und zeige an, welche Werte im Vergleich zum Portfolio vorher hinzugefügt wurden und welche entfernt wurden",
+        max_tokens=500
+    )
+    return response.choices[0].text.strip()
 
-    # Hier wird angenommen, dass die TSI USA Aktienliste in einer Tabelle auf der Webseite steht
-    # Diese Logik muss entsprechend der tatsächlichen Webseite angepasst werden
-    table = soup.find('table', {'class': 'some-class-name'})  # Platzhalter-Klassenname
-    tickers = []
-    for row in table.find_all('tr')[1:]:  # Überspringe die Header-Zeile
-        ticker = row.find_all('td')[1].text.strip()  # Platzhalter für die Spalte mit den Tickers
-        tickers.append(ticker)
+# Funktion zum Laden der Kursdaten
+def load_stock_data(tickers, start_date, end_date):
+    stock_data = {}
+    for ticker in tickers:
+        stock_data[ticker] = yf.download(ticker, start=start_date, end=end_date)["Close"]
+    return pd.DataFrame(stock_data)
 
-    return tickers
+# Streamlit App
+st.title("TSI USA Aktien Portfolio")
 
-# Funktion zum Berechnen des TSI (Trend Strength Indicator)
-def calculate_tsi(close_prices, long_window=25, short_window=13):
-    diff = close_prices.diff(1)
-    abs_diff = abs(diff)
+# Sidebar zur Eingabe des OpenAI API-Schlüssels
+api_key = st.sidebar.text_input("OpenAI API Schlüssel", type="password")
 
-    double_smoothed_diff = diff.ewm(span=long_window, adjust=False).mean().ewm(span=short_window, adjust=False).mean()
-    double_smoothed_abs_diff = abs_diff.ewm(span=long_window, adjust=False).mean().ewm(span=short_window, adjust=False).mean()
+# Sidebar zur Ermittlung der aktuellen TSI USA Aktien
+if st.sidebar.button("Ermittle aktuelle TSI USA Aktien") and api_key:
+    tsi_usa_stocks_text = get_current_tsi_usa_portfolio(api_key)
+    st.sidebar.success("Aktuelle TSI USA Aktien erfolgreich ermittelt!")
+else:
+    tsi_usa_stocks_text = ""
 
-    tsi = 100 * (double_smoothed_diff / double_smoothed_abs_diff)
-    return tsi
+# Anzeige der TSI-Werte
+if tsi_usa_stocks_text:
+    st.header("Aktuelle TSI USA Aktien und Veränderungen")
+    st.text(tsi_usa_stocks_text)
+    
+    # Parsing the response to get stock tickers and TSI values
+    lines = tsi_usa_stocks_text.split('\n')
+    tickers = [line.split(': ')[1] for line in lines if 'Ticker' in line]
+    tsi_values = {line.split(': ')[0]: float(line.split(': ')[1]) for line in lines if 'TSI-Wert' in line}
 
-# Hauptfunktion
-def main():
-    st.title("TSI USA Aktien Portfolio Analyse")
+    if tickers:
+        st.header("TSI-Werte der TSI USA Aktien")
+        tsi_df = pd.DataFrame(tsi_values.items(), columns=["Aktie", "TSI-Wert"])
+        st.table(tsi_df)
 
-    # Sidebar für dynamische Ermittlung des TSI USA Portfolios
-    st.sidebar.header("Optionen")
-    if st.sidebar.button("TSI USA Portfolio ermitteln"):
-        tickers = get_tsi_usa_stocks()
-        st.write("Ermittelte TSI USA Aktien-Ticker:", tickers)  # Debugging-Ausgabe
-        if tickers:
-            data = yf.download(tickers, start="2020-01-01")
-            st.write("Geladene Kursdaten:", data)  # Debugging-Ausgabe
+        # Laden der Kursdaten des gesamten Portfolios
+        st.header("Entwicklung des gesamten Portfolios")
+        stock_data = load_stock_data(tickers, start_date="2023-01-01", end_date="2024-12-31")
 
-            if 'Close' in data:
-                # Schließen-Daten extrahieren
-                close_data = data['Close']
-                st.write("Schlusskursdaten:", close_data)  # Debugging-Ausgabe
+        # Berechnung des Portfolio-Werts
+        portfolio_value = stock_data.mean(axis=1)
 
-                # TSI für jede Aktie berechnen
-                tsi_data = pd.DataFrame()
-                for ticker in tickers:
-                    tsi_data[ticker] = calculate_tsi(close_data[ticker])
-
-                # TSI-Werte tabellarisch darstellen
-                st.subheader("TSI-Werte der Aktien")
-                st.write(tsi_data)
-
-                # Portfolioentwicklung darstellen
-                st.subheader("Portfolioentwicklung")
-                if not close_data.empty:
-                    portfolio_close = close_data.mean(axis=1)
-                    st.write("Portfolio-Schlusskurse:", portfolio_close)  # Debugging-Ausgabe
-
-                    fig, ax = plt.subplots()
-                    portfolio_close.plot(ax=ax, title='Portfolio Close Price Over Time')
-                    ax.set_xlabel('Datum')
-                    ax.set_ylabel('Durchschnittlicher Schlusskurs')
-
-                    st.pyplot(fig)
-                else:
-                    st.error("Keine Schlusskursdaten verfügbar.")
-            else:
-                st.error("Fehler beim Laden der Schlusskursdaten.")
-        else:
-            st.error("Konnte keine TSI USA Aktien von 'Der Aktionär' ermitteln.")
-    else:
-        st.sidebar.write("Klicken Sie auf den Button, um die TSI USA Aktien zu ermitteln.")
-
-# Streamlit App starten
-if __name__ == "__main__":
-    main()
+        # Plotten der Kursdaten des gesamten Portfolios
+        st.subheader("Kursverlauf des gesamten Portfolios")
+        fig, ax = plt.subplots()
+        ax.plot(portfolio_value.index, portfolio_value, label="Portfolio-Wert")
+        ax.set_xlabel("Datum")
+        ax.set_ylabel("Preis in USD")
+        ax.set_title("Entwicklung des TSI USA Portfolios")
+        ax.legend()
+        st.pyplot(fig)
+else:
+    st.write("Bitte geben Sie Ihren OpenAI API-Schlüssel ein und klicken Sie auf den Button in der Sidebar, um die aktuellen TSI USA Aktien zu ermitteln.")
