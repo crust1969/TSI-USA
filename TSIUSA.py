@@ -1,5 +1,6 @@
 import streamlit as st
 import openai
+import yfinance as yf
 import pandas as pd
 
 # Initialize OpenAI
@@ -7,16 +8,24 @@ def initialize_openai(api_key):
     openai.api_key = api_key
 
 # Funktion zur Ermittlung des aktuellen TSI USA Portfolios mit LLM
-def get_current_tsi_usa_portfolio(api_key):
+def get_current_tsi_usa_portfolio(api_key, prompt):
     openai.api_key = api_key
     response = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[
             {"role": "system", "content": "Du bist ein Finanzexperte."},
-            {"role": "user", "content": "Ermittle das aktuelle TSI USA Portfolio und zeige an, welche Werte im Vergleich zum Portfolio vorher hinzugefügt wurden und welche entfernt wurden."}
+            {"role": "user", "content": prompt}
         ]
     )
     return response['choices'][0]['message']['content']
+
+# Funktion zum Laden der Kursdaten
+def fetch_stock_prices(tickers):
+    stock_data = {}
+    for ticker in tickers:
+        stock_info = yf.Ticker(ticker)
+        stock_data[ticker] = stock_info.history(period="1d")['Close'][0]
+    return stock_data
 
 # Streamlit App
 st.title("TSI USA Portfolio Assistant")
@@ -35,7 +44,7 @@ if api_key:
     user_input = st.text_input("Ihre Frage an GPT-4:")
     if st.button("Senden"):
         if user_input:
-            response = get_current_tsi_usa_portfolio(user_input, api_key)
+            response = get_current_tsi_usa_portfolio(api_key, user_input)
             st.write("GPT-4 Antwort: ", response)
             st.session_state.last_response = response
         else:
@@ -71,11 +80,3 @@ if api_key:
         st.write(st.session_state.portfolio_df)
 else:
     st.write("Bitte geben Sie Ihren OpenAI API-Schlüssel ein, um zu beginnen.")
-
-# Funktion zum Abrufen der aktuellen Aktienkurse von Yahoo Finance
-def fetch_stock_prices(tickers):
-    stock_data = {}
-    for ticker in tickers:
-        stock_info = yf.Ticker(ticker)
-        stock_data[ticker] = stock_info.history(period="1d")['Close'][0]
-    return stock_data
