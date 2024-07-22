@@ -19,6 +19,13 @@ def get_tsi_usa_stocks():
     }
     return tsi_usa_stocks
 
+# Funktion zum Laden der Kursdaten
+def load_stock_data(tickers, start_date, end_date):
+    stock_data = {}
+    for ticker in tickers:
+        stock_data[ticker] = yf.download(ticker, start=start_date, end=end_date)["Close"]
+    return pd.DataFrame(stock_data)
+
 # Streamlit App
 st.title("TSI USA Aktien Portfolio")
 
@@ -36,21 +43,21 @@ if tsi_usa_stocks:
     tsi_df = pd.DataFrame(tsi_values.items(), columns=["Aktie", "TSI-Wert"])
     st.table(tsi_df)
 
-    # Auswahl der Aktie
-    st.header("Kursverlauf der TSI USA Aktien")
-    selected_stock = st.selectbox("Wähle eine Aktie aus:", list(tsi_usa_stocks.keys()))
+    # Laden der Kursdaten des gesamten Portfolios
+    st.header("Entwicklung des gesamten Portfolios")
+    tickers = [data["ticker"] for stock, data in tsi_usa_stocks.items()]
+    stock_data = load_stock_data(tickers, start_date="2023-01-01", end_date="2024-12-31")
 
-    # Laden der Kursdaten
-    ticker = tsi_usa_stocks[selected_stock]["ticker"]
-    stock_data = yf.download(ticker, start="2023-01-01", end="2024-12-31")
+    # Berechnung des Portfolio-Werts
+    portfolio_value = stock_data.mean(axis=1)
 
-    # Plotten der Kursdaten
-    st.subheader(f"Kursverlauf von {selected_stock}")
+    # Plotten der Kursdaten des gesamten Portfolios
+    st.subheader("Kursverlauf des gesamten Portfolios")
     fig, ax = plt.subplots()
-    ax.plot(stock_data.index, stock_data["Close"], label="Schlusskurs")
+    ax.plot(portfolio_value.index, portfolio_value, label="Portfolio-Wert")
     ax.set_xlabel("Datum")
     ax.set_ylabel("Preis in USD")
-    ax.set_title(f"{selected_stock} (TSI-Wert: {tsi_usa_stocks[selected_stock]['tsi_value']})")
+    ax.set_title("Entwicklung des TSI USA Portfolios")
     ax.legend()
     st.pyplot(fig)
 else:
