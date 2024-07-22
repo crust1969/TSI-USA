@@ -191,3 +191,6 @@ if uploaded_file is not None:
 
                 # Anzeige der TSI-Daten
                 st.subheader("TSI-Daten")
+                tsi_start_date = tsi_data.index.min()
+                tsi_end_date = tsi_data.index.max()
+                date_slider = st
