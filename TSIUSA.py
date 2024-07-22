@@ -7,12 +7,14 @@ import openai
 # Funktion zur Ermittlung des aktuellen TSI USA Portfolios mit LLM
 def get_current_tsi_usa_portfolio(api_key):
     openai.api_key = api_key
-    response = openai.Completion.create(
-        engine="text-davinci-003",
-        prompt="ermittle das aktuelle TSI USA Portfolio und zeige an, welche Werte im Vergleich zum Portfolio vorher hinzugefügt wurden und welche entfernt wurden",
-        max_tokens=500
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "Du bist ein Finanzexperte."},
+            {"role": "user", "content": "ermittle das aktuelle TSI USA Portfolio und zeige an, welche Werte im Vergleich zum Portfolio vorher hinzugefügt wurden und welche entfernt wurden"}
+        ]
     )
-    return response.choices[0].text.strip()
+    return response['choices'][0]['message']['content']
 
 # Funktion zum Laden der Kursdaten
 def load_stock_data(tickers, start_date, end_date):
