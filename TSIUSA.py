@@ -40,31 +40,41 @@ def main():
     st.sidebar.header("Optionen")
     if st.sidebar.button("TSI USA Portfolio ermitteln"):
         tickers = get_tsi_usa_stocks()
+        st.write("Ermittelte TSI USA Aktien-Ticker:", tickers)  # Debugging-Ausgabe
         if tickers:
             data = yf.download(tickers, start="2020-01-01")
+            st.write("Geladene Kursdaten:", data)  # Debugging-Ausgabe
 
-            # Schließen-Daten extrahieren
-            close_data = data['Close']
+            if 'Close' in data:
+                # Schließen-Daten extrahieren
+                close_data = data['Close']
+                st.write("Schlusskursdaten:", close_data)  # Debugging-Ausgabe
 
-            # TSI für jede Aktie berechnen
-            tsi_data = pd.DataFrame()
-            for ticker in tickers:
-                tsi_data[ticker] = calculate_tsi(close_data[ticker])
+                # TSI für jede Aktie berechnen
+                tsi_data = pd.DataFrame()
+                for ticker in tickers:
+                    tsi_data[ticker] = calculate_tsi(close_data[ticker])
 
-            # TSI-Werte tabellarisch darstellen
-            st.subheader("TSI-Werte der Aktien")
-            st.write(tsi_data)
+                # TSI-Werte tabellarisch darstellen
+                st.subheader("TSI-Werte der Aktien")
+                st.write(tsi_data)
 
-            # Portfolioentwicklung darstellen
-            st.subheader("Portfolioentwicklung")
-            portfolio_close = close_data.mean(axis=1)
+                # Portfolioentwicklung darstellen
+                st.subheader("Portfolioentwicklung")
+                if not close_data.empty:
+                    portfolio_close = close_data.mean(axis=1)
+                    st.write("Portfolio-Schlusskurse:", portfolio_close)  # Debugging-Ausgabe
 
-            fig, ax = plt.subplots()
-            portfolio_close.plot(ax=ax, title='Portfolio Close Price Over Time')
-            ax.set_xlabel('Datum')
-            ax.set_ylabel('Durchschnittlicher Schlusskurs')
+                    fig, ax = plt.subplots()
+                    portfolio_close.plot(ax=ax, title='Portfolio Close Price Over Time')
+                    ax.set_xlabel('Datum')
+                    ax.set_ylabel('Durchschnittlicher Schlusskurs')
 
-            st.pyplot(fig)
+                    st.pyplot(fig)
+                else:
+                    st.error("Keine Schlusskursdaten verfügbar.")
+            else:
+                st.error("Fehler beim Laden der Schlusskursdaten.")
         else:
             st.error("Konnte keine TSI USA Aktien von 'Der Aktionär' ermitteln.")
     else:
