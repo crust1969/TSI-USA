@@ -2,24 +2,32 @@ import streamlit as st
 import openai
 import yfinance as yf
 import pandas as pd
+from bs4 import BeautifulSoup
+import requests
 
 # Initialize OpenAI
 def initialize_openai(api_key):
     openai.api_key = api_key
 
-# Funktion zur Ermittlung des aktuellen TSI USA Portfolios mit LLM
-def get_current_tsi_usa_portfolio(api_key, prompt):
-    openai.api_key = api_key
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": "Du bist ein Finanzexperte."},
-            {"role": "user", "content": prompt}
-        ]
-    )
-    return response['choices'][0]['message']['content']
+# Function to get current TSI USA portfolio using web scraping
+def get_tsi_usa_portfolio():
+    url = "https://www.deraktionaer.de/aktien/tsi-usa"
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, 'html.parser')
+    
+    portfolio = []
+    for item in soup.select("article"):
+        try:
+            stock = item.select_one("h2").text.strip()
+            ticker = item.select_one("span.ticker").text.strip()
+            tsi_value = item.select_one("span.tsi-value").text.strip()
+            portfolio.append((stock, ticker, tsi_value))
+        except AttributeError:
+            continue
+    
+    return portfolio
 
-# Funktion zum Laden der Kursdaten
+# Function to fetch stock prices from Yahoo Finance
 def fetch_stock_prices(tickers):
     stock_data = {}
     for ticker in tickers:
@@ -33,50 +41,22 @@ st.title("TSI USA Portfolio Assistant")
 # Sidebar for API key input
 api_key = st.sidebar.text_input("OpenAI API Key", type="password")
 
-# Initialize empty list to collect portfolio entries
-portfolio = []
+# Button to fetch the TSI USA Portfolio
+if st.sidebar.button("Fetch TSI USA Portfolio"):
+    portfolio = get_tsi_usa_portfolio()
+    st.session_state.portfolio = portfolio
 
-if api_key:
-    initialize_openai(api_key)
+# Display the fetched TSI USA Portfolio
+if "portfolio" in st.session_state:
+    st.header("Current TSI USA Portfolio")
+    df_portfolio = pd.DataFrame(st.session_state.portfolio, columns=["Stock", "Ticker", "TSI Value"])
+    st.write(df_portfolio)
 
-    # Step-by-step chat with GPT-4 to gather portfolio entries
-    st.header("Chat with GPT-4 to gather TSI USA portfolio")
-    user_input = st.text_input("Ihre Frage an GPT-4:")
-    if st.button("Senden"):
-        if user_input:
-            response = get_current_tsi_usa_portfolio(api_key, user_input)
-            st.write("GPT-4 Antwort: ", response)
-            st.session_state.last_response = response
-        else:
-            st.write("Bitte geben Sie eine Frage ein.")
-    
-    # Option to confirm the portfolio entry
-    if 'last_response' in st.session_state:
-        if st.button("Zum Portfolio hinzufügen"):
-            portfolio.append(st.session_state.last_response)
-            st.session_state.last_response = None
-
-    # Display the current portfolio
-    st.header("Aktuelles Portfolio")
-    for entry in portfolio:
-        st.write(entry)
-
-    # Confirm and create DataFrame
-    if st.sidebar.button("Portfolio bestätigen"):
-        portfolio_data = [entry.split(",") for entry in portfolio]  # Assuming entries are comma-separated
-        df = pd.DataFrame(portfolio_data, columns=["Stock", "Ticker"])
-        st.session_state.portfolio_df = df
-        st.write("Portfolio bestätigt!")
-
-    # Fetch current stock prices
-    if "portfolio_df" in st.session_state and st.sidebar.button("Aktuelle Aktienkurse abrufen"):
-        tickers = st.session_state.portfolio_df['Ticker'].tolist()
+    # Button to fetch current stock prices
+    if st.sidebar.button("Fetch Current Stock Prices"):
+        tickers = df_portfolio["Ticker"].tolist()
         prices = fetch_stock_prices(tickers)
-        st.session_state.stock_prices = prices
-        
-        # Display the DataFrame with current prices
-        st.header("Portfolio mit aktuellen Aktienkursen")
-        st.session_state.portfolio_df['Aktueller Kurs'] = st.session_state.portfolio_df['Ticker'].map(st.session_state.stock_prices)
-        st.write(st.session_state.portfolio_df)
+        df_portfolio["Current Price"] = df_portfolio["Ticker"].map(prices)
+        st.write(df_portfolio)
 else:
-    st.write("Bitte geben Sie Ihren OpenAI API-Schlüssel ein, um zu beginnen.")
+    st.write("Click the button in the sidebar to fetch the TSI USA Portfolio.")
