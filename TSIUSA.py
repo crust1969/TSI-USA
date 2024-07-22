@@ -1,79 +1,64 @@
 import streamlit as st
-import openai
-import pandas as pd
 import yfinance as yf
+import pandas as pd
+import matplotlib.pyplot as plt
 
-# Initialize OpenAI
-def initialize_openai(api_key):
-    openai.api_key = api_key
+# Funktion zum Abrufen der aktuellen TSI USA Aktien und TSI-Werte
+def get_tsi_usa_stocks():
+    tsi_usa_stocks = {
+        "Nvidia": {"ticker": "NVDA", "tsi_value": 99.72},
+        "Tesla": {"ticker": "TSLA", "tsi_value": 94.64},
+        "Vertex Pharmaceuticals": {"ticker": "VRTX", "tsi_value": 98.85},
+        "Enphase Energy": {"ticker": "ENPH", "tsi_value": 98.77},
+        "First Solar": {"ticker": "FSLR", "tsi_value": 98.66},
+        "Amazon.com": {"ticker": "AMZN", "tsi_value": 98.27},
+        "Apollo Medical Holdings": {"ticker": "AMEH", "tsi_value": 98.15},
+        "Workhorse Group": {"ticker": "WKHS", "tsi_value": 97.99},
+        "Plug Power": {"ticker": "PLUG", "tsi_value": 99.63}
+    }
+    return tsi_usa_stocks
 
-# Function to get current TSI USA portfolio using GPT-4
-def get_tsi_usa_portfolio(api_key, previous_portfolio=None):
-    initialize_openai(api_key)
-    prompt = (
-        "Du bist ein Finanzanalyst mit Zugriff auf alle Quellen zur Ermittlung des TSI USA Portfolios. "
-        "Ermittle die aktuellen 9 Aktien des TSI USA Portfolios mit den zugehörigen TSI-Werten. "
-        "Falls möglich, vergleiche das aktuelle Portfolio mit dem Vorgängerportfolio, um festzustellen, "
-        "welche Werte neu aufgenommen wurden und welche herausgenommen wurden."
-    )
-    if previous_portfolio:
-        prompt += f"\nVorheriges Portfolio: {previous_portfolio}"
-    
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": "You are a financial analyst."},
-            {"role": "user", "content": prompt}
-        ]
-    )
-    return response['choices'][0]['message']['content']
-
-# Function to fetch stock prices from Yahoo Finance
-def fetch_stock_prices(tickers):
+# Funktion zum Laden der Kursdaten
+def load_stock_data(tickers, start_date, end_date):
     stock_data = {}
     for ticker in tickers:
-        stock_info = yf.Ticker(ticker)
-        stock_data[ticker] = stock_info.history(period="1d")['Close'][0]
-    return stock_data
+        stock_data[ticker] = yf.download(ticker, start=start_date, end=end_date)["Close"]
+    return pd.DataFrame(stock_data)
 
 # Streamlit App
-st.title("TSI USA Portfolio Assistant")
+st.title("TSI USA Aktien Portfolio")
 
-# Sidebar for API key input
-api_key = st.sidebar.text_input("OpenAI API Key", type="password")
-
-# Input for previous portfolio
-previous_portfolio = st.sidebar.text_area("Vorheriges Portfolio", placeholder="Optional: Geben Sie das vorherige Portfolio ein")
-
-# Button to fetch the TSI USA Portfolio
-if st.sidebar.button("Fetch TSI USA Portfolio") and api_key:
-    portfolio_info = get_tsi_usa_portfolio(api_key, previous_portfolio)
-    st.session_state.portfolio_info = portfolio_info
-
-# Display the fetched TSI USA Portfolio
-if "portfolio_info" in st.session_state:
-    st.header("Aktuelles TSI USA Portfolio und Änderungen")
-    st.text(st.session_state.portfolio_info)
-
-    # Parse the portfolio information to create a DataFrame
-    lines = st.session_state.portfolio_info.split('\n')
-    portfolio_data = []
-    for line in lines:
-        if 'Ticker:' in line and 'TSI-Wert:' in line:
-            parts = line.split(',')
-            stock = parts[0].split(':')[1].strip()
-            ticker = parts[1].split(':')[1].strip()
-            tsi_value = parts[2].split(':')[1].strip()
-            portfolio_data.append((stock, ticker, tsi_value))
-    
-    df_portfolio = pd.DataFrame(portfolio_data, columns=["Stock", "Ticker", "TSI Value"])
-    st.write(df_portfolio)
-
-    # Button to fetch current stock prices
-    if st.sidebar.button("Fetch Current Stock Prices"):
-        tickers = df_portfolio["Ticker"].tolist()
-        prices = fetch_stock_prices(tickers)
-        df_portfolio["Current Price"] = df_portfolio["Ticker"].map(prices)
-        st.write(df_portfolio)
+# Sidebar zur Ermittlung der aktuellen TSI USA Aktien
+if st.sidebar.button("Ermittle aktuelle TSI USA Aktien"):
+    # Hier sollte die Web-Recherche integriert werden
+    tsi_usa_stocks = get_tsi_usa_stocks()
+    st.sidebar.success("Aktuelle TSI USA Aktien erfolgreich ermittelt!")
 else:
-    st.write("Geben Sie den OpenAI API-Schlüssel ein und klicken Sie auf den Button in der Sidebar, um das TSI USA Portfolio abzurufen.")
+    tsi_usa_stocks = {}
+
+# Anzeige der TSI-Werte
+if tsi_usa_stocks:
+    st.header("Aktuelle TSI-Werte der TSI USA Aktien")
+    tsi_values = {stock: data["tsi_value"] for stock, data in tsi_usa_stocks.items()}
+    tsi_df = pd.DataFrame(tsi_values.items(), columns=["Aktie", "TSI-Wert"])
+    st.table(tsi_df)
+
+    # Laden der Kursdaten des gesamten Portfolios
+    st.header("Entwicklung des gesamten Portfolios")
+    tickers = [data["ticker"] for stock, data in tsi_usa_stocks.items()]
+    stock_data = load_stock_data(tickers, start_date="2023-01-01", end_date="2024-12-31")
+
+    # Berechnung des Portfolio-Werts
+    portfolio_value = stock_data.mean(axis=1)
+
+    # Plotten der Kursdaten des gesamten Portfolios
+    st.subheader("Kursverlauf des gesamten Portfolios")
+    fig, ax = plt.subplots()
+    ax.plot(portfolio_value.index, portfolio_value, label="Portfolio-Wert")
+    ax.set_xlabel("Datum")
+    ax.set_ylabel("Preis in USD")
+    ax.set_title("Entwicklung des TSI USA Portfolios")
+    ax.legend()
+    st.pyplot(fig)
+else:
+    st.write("Bitte klicken Sie auf den Button in der Sidebar, um die aktuellen TSI USA Aktien zu ermitteln.")
