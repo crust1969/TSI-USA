@@ -10,7 +10,7 @@ def load_csv(file):
 # Funktion zum Abrufen der Aktienkurse von Yahoo Finance
 def fetch_stock_prices(ticker):
     stock_info = yf.Ticker(ticker)
-    return stock_info.history(period="5d")
+    return stock_info.history(period="1mo")
 
 # Funktion zur Anzeige der Kursdaten
 def display_stock_data(stock_data, ticker, tsi_value):
@@ -18,8 +18,8 @@ def display_stock_data(stock_data, ticker, tsi_value):
     st.write(stock_data)
     st.line_chart(stock_data['Close'])
 
-# Funktion zur Berechnung des gesamten Portfoliowerts
-def calculate_portfolio_value(portfolio, tsi_df, investment=15000):
+# Funktion zur Berechnung des durchschnittlichen Portfoliowerts
+def calculate_average_portfolio_value(portfolio, tsi_df, investment=15000):
     portfolio_value = pd.DataFrame()
     investment_per_stock = investment / len(portfolio)
     for ticker in portfolio['Ticker']:
@@ -30,7 +30,7 @@ def calculate_portfolio_value(portfolio, tsi_df, investment=15000):
                 portfolio_value = stock_data[['Investment Value']].copy()
             else:
                 portfolio_value['Investment Value'] += stock_data['Investment Value']
-    return portfolio_value
+    return portfolio_value.mean()
 
 # Streamlit App
 st.title("TSI USA Portfolio Assistant")
@@ -56,11 +56,9 @@ if uploaded_file is not None:
                 tsi_value = tsi_df[tsi_df['Ticker'] == row['Ticker']]['TSI Value'].values[0]
                 display_stock_data(stock_data, row['Ticker'], tsi_value)
 
-        st.header("Portfolio Value Over Time")
-        portfolio_value = calculate_portfolio_value(portfolio, tsi_df)
-        if not portfolio_value.empty:
-            st.line_chart(portfolio_value['Investment Value'])
-            st.write(portfolio_value)
+        st.header("Average Portfolio Value Over One Month")
+        average_portfolio_value = calculate_average_portfolio_value(portfolio, tsi_df)
+        st.write(f"Durchschnittlicher Portfoliowert über einen Monat: {average_portfolio_value['Investment Value']:.2f} EUR")
     else:
         st.write("The uploaded CSV file is empty. Please upload a valid CSV file.")
 else:
