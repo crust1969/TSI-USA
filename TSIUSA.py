@@ -1,64 +1,61 @@
 import streamlit as st
-import yfinance as yf
 import pandas as pd
+import yfinance as yf
 import matplotlib.pyplot as plt
 
-# Funktion zum Abrufen der aktuellen TSI USA Aktien und TSI-Werte
-def get_tsi_usa_stocks():
-    # Dies ist ein Platzhalter. Die tatsächlichen Werte sollten von der Website "Der Aktionär" oder einer anderen verlässlichen Quelle abgerufen werden.
-    tsi_usa_stocks = {
-        "Nvidia": {"ticker": "NVDA", "tsi_value": 99.72},
-        "Tesla": {"ticker": "TSLA", "tsi_value": 99.63},
-        "Vertex Pharmaceuticals": {"ticker": "VRTX", "tsi_value": 98.85},
-        "Enphase Energy": {"ticker": "ENPH", "tsi_value": 98.77},
-        "First Solar": {"ticker": "FSLR", "tsi_value": 98.66},
-        "Amazon.com": {"ticker": "AMZN", "tsi_value": 98.27},
-        "Apollo Medical Holdings": {"ticker": "AMEH", "tsi_value": 98.15},
-        "Workhorse Group": {"ticker": "WKHS", "tsi_value": 97.99},
-        "Plug Power": {"ticker": "PLUG", "tsi_value": 97.88}
-    }
-    return tsi_usa_stocks
+# Funktion zum Laden der CSV-Datei
+def load_csv(file):
+    return pd.read_csv(file)
 
-# Funktion zum Laden der Kursdaten
-def load_stock_data(tickers, start_date, end_date):
-    stock_data = {}
-    for ticker in tickers:
-        stock_data[ticker] = yf.download(ticker, start=start_date, end=end_date)["Close"]
-    return pd.DataFrame(stock_data)
+# Funktion zum Abrufen der Aktienkurse von Yahoo Finance
+def fetch_stock_prices(ticker):
+    stock_info = yf.Ticker(ticker)
+    return stock_info.history(period="5d")
+
+# Funktion zur Anzeige der Kursdaten
+def display_stock_data(stock_data, ticker, tsi_value):
+    st.write(f"**{ticker} (TSI-Wert: {tsi_value})**")
+    st.write(stock_data)
+    st.line_chart(stock_data['Close'])
+
+# Funktion zur Berechnung des gesamten Portfoliowerts
+def calculate_portfolio_value(portfolio, tsi_df):
+    portfolio_value = pd.DataFrame()
+    for ticker in portfolio['Ticker']:
+        stock_data = fetch_stock_prices(ticker)
+        tsi_value = tsi_df[tsi_df['Ticker'] == ticker]['TSI Value'].values[0]
+        stock_data['TSI Value'] = tsi_value
+        if portfolio_value.empty:
+            portfolio_value = stock_data['Close']
+        else:
+            portfolio_value += stock_data['Close']
+    return portfolio_value
 
 # Streamlit App
-st.title("TSI USA Aktien Portfolio")
+st.title("TSI USA Portfolio Assistant")
 
-# Sidebar zur Ermittlung der aktuellen TSI USA Aktien
-if st.sidebar.button("Ermittle aktuelle TSI USA Aktien"):
-    tsi_usa_stocks = get_tsi_usa_stocks()
-    st.sidebar.success("Aktuelle TSI USA Aktien erfolgreich ermittelt!")
+# Sidebar zum Hochladen der CSV-Datei
+st.sidebar.header("Upload CSV")
+uploaded_file = st.sidebar.file_uploader("Upload your TSI USA Portfolio CSV file", type=["csv"])
+
+if uploaded_file is not None:
+    portfolio = load_csv(uploaded_file)
+    st.write("Uploaded TSI USA Portfolio:")
+    st.write(portfolio)
+
+    # Dummy TSI Werte (Ersetzen Sie dies durch echte Daten)
+    tsi_data = {'Ticker': portfolio['Ticker'], 'TSI Value': [95, 92, 88, 97, 94, 90, 93, 89, 91]}
+    tsi_df = pd.DataFrame(tsi_data)
+
+    st.header("Stock Data with TSI Values")
+    for index, row in portfolio.iterrows():
+        stock_data = fetch_stock_prices(row['Ticker'])
+        tsi_value = tsi_df[tsi_df['Ticker'] == row['Ticker']]['TSI Value'].values[0]
+        display_stock_data(stock_data, row['Ticker'], tsi_value)
+
+    st.header("Portfolio Value Over Time")
+    portfolio_value = calculate_portfolio_value(portfolio, tsi_df)
+    st.line_chart(portfolio_value)
+
 else:
-    tsi_usa_stocks = {}
-
-# Anzeige der TSI-Werte
-if tsi_usa_stocks:
-    st.header("Aktuelle TSI-Werte der TSI USA Aktien")
-    tsi_values = {stock: data["tsi_value"] for stock, data in tsi_usa_stocks.items()}
-    tsi_df = pd.DataFrame(tsi_values.items(), columns=["Aktie", "TSI-Wert"])
-    st.table(tsi_df)
-
-    # Laden der Kursdaten des gesamten Portfolios
-    st.header("Entwicklung des gesamten Portfolios")
-    tickers = [data["ticker"] for stock, data in tsi_usa_stocks.items()]
-    stock_data = load_stock_data(tickers, start_date="2023-01-01", end_date="2024-12-31")
-
-    # Berechnung des Portfolio-Werts
-    portfolio_value = stock_data.mean(axis=1)
-
-    # Plotten der Kursdaten des gesamten Portfolios
-    st.subheader("Kursverlauf des gesamten Portfolios")
-    fig, ax = plt.subplots()
-    ax.plot(portfolio_value.index, portfolio_value, label="Portfolio-Wert")
-    ax.set_xlabel("Datum")
-    ax.set_ylabel("Preis in USD")
-    ax.set_title("Entwicklung des TSI USA Portfolios")
-    ax.legend()
-    st.pyplot(fig)
-else:
-    st.write("Bitte klicken Sie auf den Button in der Sidebar, um die aktuellen TSI USA Aktien zu ermitteln.")
+    st.write("Please upload a CSV file to proceed.")
