@@ -3,62 +3,51 @@ import yfinance as yf
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# Funktion zum Abrufen der aktuellen TSI USA Aktien und TSI-Werte
-def get_tsi_usa_stocks():
-    # Dies ist ein Platzhalter. Die tatsächlichen Werte sollten von der Website "Der Aktionär" oder einer anderen verlässlichen Quelle abgerufen werden.
-    tsi_usa_stocks = {
-        "Nvidia": {"ticker": "NVDA", "tsi_value": 99.72},
-        "Tesla": {"ticker": "TSLA", "tsi_value": 99.63},
-        "Vertex Pharmaceuticals": {"ticker": "VRTX", "tsi_value": 98.85},
-        "Enphase Energy": {"ticker": "ENPH", "tsi_value": 98.77},
-        "First Solar": {"ticker": "FSLR", "tsi_value": 98.66},
-        "Amazon.com": {"ticker": "AMZN", "tsi_value": 98.27},
-        "Apollo Medical Holdings": {"ticker": "AMEH", "tsi_value": 98.15},
-        "Workhorse Group": {"ticker": "WKHS", "tsi_value": 97.99},
-        "Plug Power": {"ticker": "PLUG", "tsi_value": 97.88}
-    }
-    return tsi_usa_stocks
+# Funktion zum Berechnen des TSI (Trend Strength Indicator)
+def calculate_tsi(close_prices, long_window=25, short_window=13):
+    diff = close_prices.diff(1)
+    abs_diff = abs(diff)
 
-# Funktion zum Laden der Kursdaten
-def load_stock_data(tickers, start_date, end_date):
-    stock_data = {}
-    for ticker in tickers:
-        stock_data[ticker] = yf.download(ticker, start=start_date, end=end_date)["Close"]
-    return pd.DataFrame(stock_data)
+    double_smoothed_diff = diff.ewm(span=long_window, adjust=False).mean().ewm(span=short_window, adjust=False).mean()
+    double_smoothed_abs_diff = abs_diff.ewm(span=long_window, adjust=False).mean().ewm(span=short_window, adjust=False).mean()
 
-# Streamlit App
-st.title("TSI USA Aktien Portfolio")
+    tsi = 100 * (double_smoothed_diff / double_smoothed_abs_diff)
+    return tsi
 
-# Sidebar zur Ermittlung der aktuellen TSI USA Aktien
-if st.sidebar.button("Ermittle aktuelle TSI USA Aktien"):
-    tsi_usa_stocks = get_tsi_usa_stocks()
-    st.sidebar.success("Aktuelle TSI USA Aktien erfolgreich ermittelt!")
-else:
-    tsi_usa_stocks = {}
+# Hauptfunktion
+def main():
+    st.title("TSI USA Aktien Portfolio Analyse")
 
-# Anzeige der TSI-Werte
-if tsi_usa_stocks:
-    st.header("Aktuelle TSI-Werte der TSI USA Aktien")
-    tsi_values = {stock: data["tsi_value"] for stock, data in tsi_usa_stocks.items()}
-    tsi_df = pd.DataFrame(tsi_values.items(), columns=["Aktie", "TSI-Wert"])
-    st.table(tsi_df)
+    # Eingabefeld für Aktien-Ticker
+    tickers = st.text_input("Geben Sie die Aktien-Ticker ein, getrennt durch Kommas (z.B. AAPL, MSFT, GOOGL):")
 
-    # Laden der Kursdaten des gesamten Portfolios
-    st.header("Entwicklung des gesamten Portfolios")
-    tickers = [data["ticker"] for stock, data in tsi_usa_stocks.items()]
-    stock_data = load_stock_data(tickers, start_date="2023-01-01", end_date="2024-12-31")
+    if tickers:
+        ticker_list = [ticker.strip() for ticker in tickers.split(",")]
+        data = yf.download(ticker_list, start="2020-01-01")
 
-    # Berechnung des Portfolio-Werts
-    portfolio_value = stock_data.mean(axis=1)
+        # Schließen-Daten extrahieren
+        close_data = data['Close']
 
-    # Plotten der Kursdaten des gesamten Portfolios
-    st.subheader("Kursverlauf des gesamten Portfolios")
-    fig, ax = plt.subplots()
-    ax.plot(portfolio_value.index, portfolio_value, label="Portfolio-Wert")
-    ax.set_xlabel("Datum")
-    ax.set_ylabel("Preis in USD")
-    ax.set_title("Entwicklung des TSI USA Portfolios")
-    ax.legend()
-    st.pyplot(fig)
-else:
-    st.write("Bitte klicken Sie auf den Button in der Sidebar, um die aktuellen TSI USA Aktien zu ermitteln.")
+        # TSI für jede Aktie berechnen
+        tsi_data = pd.DataFrame()
+        for ticker in ticker_list:
+            tsi_data[ticker] = calculate_tsi(close_data[ticker])
+
+        # TSI-Werte tabellarisch darstellen
+        st.subheader("TSI-Werte der Aktien")
+        st.write(tsi_data)
+
+        # Portfolioentwicklung darstellen
+        st.subheader("Portfolioentwicklung")
+        portfolio_close = close_data.mean(axis=1)
+
+        fig, ax = plt.subplots()
+        portfolio_close.plot(ax=ax, title='Portfolio Close Price Over Time')
+        ax.set_xlabel('Datum')
+        ax.set_ylabel('Durchschnittlicher Schlusskurs')
+
+        st.pyplot(fig)
+
+# Streamlit App starten
+if __name__ == "__main__":
+    main()
