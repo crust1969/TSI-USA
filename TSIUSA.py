@@ -19,16 +19,16 @@ def display_stock_data(stock_data, ticker, tsi_value):
     st.line_chart(stock_data['Close'])
 
 # Funktion zur Berechnung des gesamten Portfoliowerts
-def calculate_portfolio_value(portfolio, tsi_df):
+def calculate_portfolio_value(portfolio, tsi_df, investment=15000):
     portfolio_value = pd.DataFrame()
+    investment_per_stock = investment / len(portfolio)
     for ticker in portfolio['Ticker']:
         stock_data = fetch_stock_prices(ticker)
-        tsi_value = tsi_df[tsi_df['Ticker'] == ticker]['TSI Value'].values[0]
-        stock_data['TSI Value'] = tsi_value
+        stock_data['Investment Value'] = stock_data['Close'] * (investment_per_stock / stock_data['Close'].iloc[0])
         if portfolio_value.empty:
-            portfolio_value = stock_data['Close']
+            portfolio_value = stock_data[['Investment Value']].copy()
         else:
-            portfolio_value += stock_data['Close']
+            portfolio_value['Investment Value'] += stock_data['Investment Value']
     return portfolio_value
 
 # Streamlit App
@@ -55,7 +55,7 @@ if uploaded_file is not None:
 
     st.header("Portfolio Value Over Time")
     portfolio_value = calculate_portfolio_value(portfolio, tsi_df)
-    st.line_chart(portfolio_value)
-
+    st.line_chart(portfolio_value['Investment Value'])
+    st.write(portfolio_value)
 else:
     st.write("Please upload a CSV file to proceed.")
